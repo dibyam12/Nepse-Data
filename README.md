@@ -16,8 +16,8 @@ A robust, standalone Django REST Framework project designed to serve and aggrega
 1. **Clone & Virtual Environment**
    ```bash
    git clone https://github.com/dibyam12/Nepse-Data.git
-   cd nepse_data_api
-   python -m venv venv
+   cd Nepse-Data
+   python -m venv venv 
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
