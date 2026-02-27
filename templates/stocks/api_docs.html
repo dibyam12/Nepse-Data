@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}API Documentation — NEPSE Data{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section-header" style="margin-top: 1rem;">
+        <div>
+            <h1>API Documentation</h1>
+            <p class="subtitle">Free REST API for Nepal Stock Exchange (NEPSE) data</p>
+        </div>
+    </div>
+
+    <!-- Getting Started -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <h2 style="margin-bottom: 1rem;">🚀 Getting Started</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+            The NEPSE Data API is completely free and requires no authentication.
+            Simply make HTTP GET requests to any endpoint below.
+        </p>
+        <p style="color: var(--text-secondary);">
+            Base URL: <code>{{ request.scheme }}://{{ request.get_host }}/api/</code>
+        </p>
+    </div>
+
+    <!-- Endpoints -->
+    <h2 style="margin-bottom: 1rem;">📡 Endpoints</h2>
+
+    <!-- API Overview -->
+    <div class="endpoint-card">
+        <div>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/api/</span>
+        </div>
+        <p class="endpoint-desc">API overview with links to all endpoints.</p>
+    </div>
+
+    <!-- Stock List -->
+    <div class="endpoint-card">
+        <div>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/api/stocks/</span>
+        </div>
+        <p class="endpoint-desc">List all available stock symbols with their latest close price and record count.</p>
+        <pre><code>{
+  "count": 250,
+  "results": [
+    {
+      "symbol": "NABIL",
+      "category": "stock",
+      "latest_date": "2026-02-25",
+      "latest_close": 1250.00,
+      "total_records": 1500
+    },
+    ...
+  ]
+}</code></pre>
+    </div>
+
+    <!-- Stock History -->
+    <div class="endpoint-card">
+        <div>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/api/stocks/{SYMBOL}/</span>
+        </div>
+        <p class="endpoint-desc">
+            Get historical OHLCV data for a specific stock (paginated, 100 per page).
+        </p>
+        <p class="endpoint-desc" style="margin-top: 0.5rem;">
+            <strong>Query Parameters:</strong>
+        </p>
+        <ul style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; padding-left: 1.5rem;">
+            <li><code>from</code> — Start date (YYYY-MM-DD)</li>
+            <li><code>to</code> — End date (YYYY-MM-DD)</li>
+            <li><code>page</code> — Page number</li>
+        </ul>
+        <pre><code>GET /api/stocks/NABIL/?from=2025-01-01&to=2025-12-31
+
+{
+  "count": 245,
+  "next": "/api/stocks/NABIL/?from=2025-01-01&to=2025-12-31&page=2",
+  "results": [
+    {
+      "symbol": "NABIL",
+      "date": "2025-12-31",
+      "open": 1240.00,
+      "high": 1260.00,
+      "low": 1235.00,
+      "close": 1250.00,
+      "volume": 15000,
+      "category": "stock",
+      "change": 10.00,
+      "change_percent": 0.81
+    },
+    ...
+  ]
+}</code></pre>
+    </div>
+
+    <!-- Latest Price -->
+    <div class="endpoint-card">
+        <div>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/api/stocks/{SYMBOL}/latest/</span>
+        </div>
+        <p class="endpoint-desc">Get the most recent price data for a single stock.</p>
+    </div>
+
+    <!-- All Latest -->
+    <div class="endpoint-card">
+        <div>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/api/latest/</span>
+        </div>
+        <p class="endpoint-desc">Get the latest trading day's prices for all stocks at once.</p>
+    </div>
+
+    <!-- NEPSE Index -->
+    <div class="endpoint-card">
+        <div>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/api/index/</span>
+        </div>
+        <p class="endpoint-desc">
+            Get NEPSE index history (defaults to last 30 entries).
+        </p>
+        <p class="endpoint-desc" style="margin-top: 0.5rem;">
+            <strong>Query Parameters:</strong>
+        </p>
+        <ul style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; padding-left: 1.5rem;">
+            <li><code>from</code> — Start date</li>
+            <li><code>to</code> — End date</li>
+            <li><code>limit</code> — Number of records (default: 30)</li>
+        </ul>
+    </div>
+
+    <!-- Rate Limits -->
+    <h2 style="margin: 2rem 0 1rem;">⚡ Rate Limits</h2>
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tier</th>
+                    <th>Limit</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Anonymous</td>
+                    <td>200 requests / hour</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Usage Examples -->
+    <h2 style="margin: 2rem 0 1rem;">💻 Usage Examples</h2>
+
+    <div class="endpoint-card">
+        <h3 style="margin-bottom: 0.75rem;">Python</h3>
+        <pre><code>import requests
+
+# Get NABIL stock data
+response = requests.get("{{ request.scheme }}://{{ request.get_host }}/api/stocks/NABIL/")
+data = response.json()
+
+for record in data["results"]:
+    print(f"{record['date']}: Close={record['close']}, Volume={record['volume']}")</code></pre>
+    </div>
+
+    <div class="endpoint-card">
+        <h3 style="margin-bottom: 0.75rem;">JavaScript</h3>
+        <pre><code>// Fetch latest prices
+const response = await fetch("{{ request.scheme }}://{{ request.get_host }}/api/latest/");
+const data = await response.json();
+
+data.results.forEach(stock => {
+  console.log(`${stock.symbol}: NPR ${stock.close} (${stock.change_percent}%)`);
+});</code></pre>
+    </div>
+
+    <div class="endpoint-card">
+        <h3 style="margin-bottom: 0.75rem;">cURL</h3>
+        <pre><code>curl "{{ request.scheme }}://{{ request.get_host }}/api/stocks/NABIL/?from=2025-01-01&to=2025-06-30"</code></pre>
+    </div>
+</div>
+{% endblock %}

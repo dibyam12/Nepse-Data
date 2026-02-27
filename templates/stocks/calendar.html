@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+
+{% block title %}Investment Calendar | NEPSE Data API{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section-header">
+        <div>
+            <h1>📅 Investment Calendar & Events</h1>
+            <p class="subtitle">Latest dividends, AGMs, book closures, and quarterly earnings.</p>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="card" style="margin-bottom: 2rem; padding: 1rem;">
+        <form method="GET" action="{% url 'calendar' %}"
+            style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <input type="text" name="q" placeholder="Search by symbol, event, or sector..." autocomplete="off"
+                value="{{ search_query }}"
+                style="flex: 1; min-width: 250px; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+
+            <select name="event_type"
+                style="padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; min-width: 150px;">
+                <option value="">All Event Types</option>
+                {% for etype in event_types %}
+                <option value="{{ etype }}" {% if event_type_filter == etype %}selected{% endif %}>{{ etype }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="page-btn"
+                style="background: var(--accent); color: white; border: none; padding: 0.5rem 1rem;">Search</button>
+            {% if search_query or event_type_filter %}
+            <a href="{% url 'calendar' %}" class="page-btn" style="text-decoration: none;">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Upcoming Events -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <h2 class="card-title">🚨 Upcoming Events (Dividends, AGMs, Book Closures)</h2>
+            <span class="badge badge-green">{{ events|length }} Events</span>
+        </div>
+
+        {% if events %}
+        <div class="table-card" style="margin-top: 1rem;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event Title</th>
+                        <th>Type</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr>
+                        <td style="font-weight: 500; color: var(--text-primary);">{{ event.title }}</td>
+                        <td>
+                            <span class="badge" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                                {{ event.event_type }}
+                            </span>
+                        </td>
+                        <td>{{ event.start_date|default:"-" }}</td>
+                        <td>{{ event.end_date|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if events_page.paginator.num_pages > 1 %}
+        <div class="pagination-bar" style="border-top: none; padding-top: 1rem; padding-bottom: 0;">
+            <div class="pagination-info">
+                Showing {{ events_page.start_index }}–{{ events_page.end_index }} of {{ events_page.paginator.count }}
+                events
+            </div>
+            <div class="pagination-controls">
+                {% if events_page.has_previous %}
+                <a href="?events_page=1{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn" title="First">«</a>
+                <a href="?events_page={{ events_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn">‹ Prev</a>
+                {% else %}
+                <span class="page-btn disabled">«</span>
+                <span class="page-btn disabled">‹ Prev</span>
+                {% endif %}
+
+                {% for num in events_page.paginator.page_range %}
+                {% if events_page.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+                {% elif num > events_page.number|add:"-3" and num < events_page.number|add:"3" %} <a
+                    href="?events_page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn">
+                    {{ num }}</a>
+                    {% elif num == 1 or num == events_page.paginator.num_pages %}
+                    <a href="?events_page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn">{{ num }}</a>
+                    {% elif num == events_page.number|add:"-3" or num == events_page.number|add:"3" %}
+                    <span class="page-dots">…</span>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if events_page.has_next %}
+                    <a href="?events_page={{ events_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn">Next ›</a>
+                    <a href="?events_page={{ events_page.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn" title="Last">»</a>
+                    {% else %}
+                    <span class="page-btn disabled">Next ›</span>
+                    <span class="page-btn disabled">»</span>
+                    {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <p style="color: var(--text-muted); padding: 1rem 0;">No upcoming events found.</p>
+        {% endif %}
+    </div>
+
+    <!-- Market Holidays -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <h2 class="card-title">🌴 Stock Market Holidays</h2>
+            <span class="badge" style="background: rgba(234, 179, 8, 0.1); color: #eab308;">{{ holidays|length }}
+                Holidays</span>
+        </div>
+
+        {% if holidays %}
+        <div class="table-card" style="margin-top: 1rem;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for holiday in holidays %}
+                    <tr>
+                        <td style="font-weight: 500; color: var(--text-primary);">{{ holiday.date }}</td>
+                        <td style="color: var(--text-muted);">{{ holiday.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if holidays_page.paginator.num_pages > 1 %}
+        <div class="pagination-bar" style="border-top: none; padding-top: 1rem; padding-bottom: 0;">
+            <div class="pagination-info">
+                Showing {{ holidays_page.start_index }}–{{ holidays_page.end_index }} of {{
+                holidays_page.paginator.count }} holidays
+            </div>
+            <div class="pagination-controls">
+                {% if holidays_page.has_previous %}
+                <a href="?holidays_page=1{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn" title="First">«</a>
+                <a href="?holidays_page={{ holidays_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn">‹ Prev</a>
+                {% else %}
+                <span class="page-btn disabled">«</span>
+                <span class="page-btn disabled">‹ Prev</span>
+                {% endif %}
+
+                {% for num in holidays_page.paginator.page_range %}
+                {% if holidays_page.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+                {% elif num > holidays_page.number|add:"-3" and num < holidays_page.number|add:"3" %} <a
+                    href="?holidays_page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn">{{ num }}</a>
+                    {% elif num == 1 or num == holidays_page.paginator.num_pages %}
+                    <a href="?holidays_page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn">{{ num }}</a>
+                    {% elif num == holidays_page.number|add:"-3" or num == holidays_page.number|add:"3" %}
+                    <span class="page-dots">…</span>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if holidays_page.has_next %}
+                    <a href="?holidays_page={{ holidays_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn">Next ›</a>
+                    <a href="?holidays_page={{ holidays_page.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn" title="Last">»</a>
+                    {% else %}
+                    <span class="page-btn disabled">Next ›</span>
+                    <span class="page-btn disabled">»</span>
+                    {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <p style="color: var(--text-muted); padding: 1rem 0;">No holidays found in the calendar.</p>
+        {% endif %}
+    </div>
+
+    <!-- Quarterly Reports -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📊 Quarterly Earnings Reports</h2>
+            <span class="badge badge-green">{{ reports|length }} Reports</span>
+        </div>
+
+
+
+        {% if reports %}
+        <div class="table-card">
+            <table id="reportsTable">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Sector</th>
+                        <th class="text-right">Earnings</th>
+                        <th class="text-right">Reported EPS</th>
+                        <th class="text-right">YoY Growth</th>
+                        <th>Surprise</th>
+                        <th class="text-right">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <!-- Keep rendering -->
+                    <tr>
+                        <td style="font-weight: 600; color: var(--accent);">
+                            <a href="{% url 'stock-detail' report.symbol %}">{{ report.symbol }}</a>
+                        </td>
+                        <td><span class="badge"
+                                style="background: var(--bg-secondary); color: var(--text-muted);">{{report.sector}}</span>
+                        </td>
+                        <td class="text-right">{{ report.earnings }}</td>
+                        <td class="text-right" style="font-family: monospace;">{{ report.reported_eps }}</td>
+                        <td class="text-right">
+                            {% if report.yoy_growth_percent and report.yoy_growth_percent > 0 %}
+                            <span class="text-green">+{{ report.yoy_growth_percent }}%</span>
+                            {% elif report.yoy_growth_percent and report.yoy_growth_percent < 0 %} <span
+                                class="text-red">{{ report.yoy_growth_percent }}%</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                        </td>
+                        <td>
+                            {% if 'Above' in report.surprise %}
+                            <span class="badge badge-green">Above</span>
+                            {% elif 'Below' in report.surprise %}
+                            <span class="badge badge-red">Below</span>
+                            {% else %}
+                            <span class="badge" style="background: var(--bg-secondary);">{{ report.surprise }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">{{ report.publish_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if reports_page.paginator.num_pages > 1 %}
+        <div class="pagination-bar" style="margin-top: 1rem;">
+            <div class="pagination-info">
+                Showing {{ reports_page.start_index }}–{{ reports_page.end_index }} of {{ reports_page.paginator.count}}
+                reports
+            </div>
+            <div class="pagination-controls">
+                {% if reports_page.has_previous %}
+                <a href="?reports_page=1{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn" title="First">«</a>
+                <a href="?reports_page={{ reports_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn">‹ Prev</a>
+                {% else %}
+                <span class="page-btn disabled">«</span>
+                <span class="page-btn disabled">‹ Prev</span>
+                {% endif %}
+
+                {% for num in reports_page.paginator.page_range %}
+                {% if reports_page.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+                {% elif num > reports_page.number|add:"-3" and num < reports_page.number|add:"3" %} <a
+                    href="?reports_page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                    class="page-btn">{{ num }}</a>
+                    {% elif num == 1 or num == reports_page.paginator.num_pages %}
+                    <a href="?reports_page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn">{{ num }}</a>
+                    {% elif num == reports_page.number|add:"-3" or num == reports_page.number|add:"3" %}
+                    <span class="page-dots">…</span>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if reports_page.has_next %}
+                    <a href="?reports_page={{ reports_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn">Next ›</a>
+                    <a href="?reports_page={{ reports_page.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}{% if event_type_filter %}&event_type={{ event_type_filter|urlencode }}{% endif %}"
+                        class="page-btn" title="Last">»</a>
+                    {% else %}
+                    <span class="page-btn disabled">Next ›</span>
+                    <span class="page-btn disabled">»</span>
+                    {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <p style="color: var(--text-muted); padding: 1rem 0;">No quarterly reports available.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

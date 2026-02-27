@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard — NEPSE Data{% endblock %}
+
+{% block extra_head %}
+<style>
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+    }
+
+    .stat-card.live::before {
+        background: linear-gradient(90deg, #22c55e, #4ade80);
+    }
+
+    .stat-card.total::before {
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    }
+
+    .stat-card.today::before {
+        background: linear-gradient(90deg, #eab308, #f97316);
+    }
+
+    .stat-card.downloads::before {
+        background: linear-gradient(90deg, #ec4899, #f43f5e);
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-card .stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .stat-card .stat-sub {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+
+    .live-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #22c55e;
+        border-radius: 50%;
+        margin-right: 4px;
+        animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+
+        0%,
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+        }
+
+        50% {
+            opacity: 0.7;
+            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+        }
+    }
+
+    .log-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .log-table thead th {
+        padding: 0.6rem 1rem;
+        text-align: left;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.15);
+    }
+
+    .log-table tbody td {
+        padding: 0.6rem 1rem;
+        font-size: 0.85rem;
+        border-bottom: 1px solid rgba(42, 48, 64, 0.4);
+        color: var(--text-secondary);
+    }
+
+    .log-table tbody tr:hover {
+        background: rgba(59, 130, 246, 0.04);
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .status-pill.success {
+        background: rgba(34, 197, 94, 0.12);
+        color: #22c55e;
+    }
+
+    .status-pill.partial {
+        background: rgba(234, 179, 8, 0.12);
+        color: #eab308;
+    }
+
+    .status-pill.failed {
+        background: rgba(239, 68, 68, 0.12);
+        color: #ef4444;
+    }
+
+    .two-panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
+
+    .panel-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .refresh-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 1rem;
+        font-size: 0.8rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        color: var(--accent);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+        text-decoration: none;
+    }
+
+    .refresh-btn:hover {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    @media (max-width: 768px) {
+        .two-panels {
+            grid-template-columns: 1fr;
+        }
+
+        .analytics-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 480px) {
+        .analytics-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Message Alerts */
+    .msg-alert {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .msg-success {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+        border: 1px solid #22c55e;
+    }
+
+    .msg-error {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+        border: 1px solid #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section-header" style="margin-top: 1rem;">
+        <div>
+            <h1>📊 Analytics Dashboard</h1>
+            <p class="subtitle">Scraper logs, user traffic, and download statistics</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="{% url 'admin-dashboard' %}" class="refresh-btn">🔄 Refresh</a>
+        </div>
+    </div>
+
+    <!-- Django Messages (Success/Error Alerts) -->
+    {% if messages %}
+    <div style="margin-bottom: 2rem;">
+        {% for message in messages %}
+        <div class="msg-alert {% if message.tags == 'success' %}msg-success{% else %}msg-error{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Stats Overview -->
+    <div class="analytics-grid">
+        <div class="stat-card live">
+            <div class="stat-label"><span class="live-dot"></span> Live Users</div>
+            <div class="stat-number">{{ live_users }}</div>
+            <div class="stat-sub">Active in last 15 min</div>
+        </div>
+        <div class="stat-card total">
+            <div class="stat-label">Total Visitors</div>
+            <div class="stat-number">{{ total_users }}</div>
+            <div class="stat-sub">Unique sessions (all time)</div>
+        </div>
+        <div class="stat-card today">
+            <div class="stat-label">Today's Visitors</div>
+            <div class="stat-number">{{ today_users }}</div>
+            <div class="stat-sub">{{ total_page_views }} total page views</div>
+        </div>
+        <div class="stat-card downloads">
+            <div class="stat-label">Total Downloads</div>
+            <div class="stat-number">{{ total_downloads }}</div>
+            <div class="stat-sub">{{ total_records_downloaded|default:"0" }} records exported</div>
+        </div>
+    </div>
+
+    <!-- Active Background Jobs -->
+    {% if running_jobs %}
+    <div class="panel" style="margin-bottom: 2rem; border-color: var(--accent);">
+        <div class="panel-header"
+            style="background: rgba(59, 130, 246, 0.1); color: var(--accent); display: flex; justify-content: space-between; align-items: center;">
+            <div>⚡ Active Background Jobs</div>
+            <span class="live-dot"></span>
+        </div>
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Job Name</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in running_jobs %}
+                <tr class="active-job-row" data-job="{{ job }}">
+                    <td style="font-weight: 600; vertical-align: top; width: 60%;">
+                        {{ job }}
+                        <div class="live-log-container"
+                            style="margin-top: 0.5rem; background: #0f172a; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.75rem; color: #a5b4fc; max-height: 200px; overflow-y: auto; white-space: pre-wrap; display: none;">
+                            Loading live logs...</div>
+                    </td>
+                    <td style="vertical-align: top;"><span class="status-pill"
+                            style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">Running...</span></td>
+                    <td style="vertical-align: top;">
+                        <form method="POST" action="{% url 'admin-dashboard' %}"
+                            onsubmit="return confirm('Are you sure you want to forcibly terminate {{ job }}?');"
+                            style="margin: 0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="cancel_job">
+                            <input type="hidden" name="job_name" value="{{ job }}">
+                            <button type="submit" class="refresh-btn"
+                                style="color: #ef4444; border-color: #ef4444; padding: 0.2rem 0.6rem; font-size: 0.75rem;">🛑
+                                Cancel</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Two Panels: Scraper Logs + Recent Downloads -->
+    <div class="two-panels">
+        <!-- Scraper Logs -->
+        <div class="panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>🤖 Scraper Logs</div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <!-- Dropdown for Manual Triggers -->
+                    <form method="POST" action="{% url 'admin-dashboard' %}" style="display: inline;"
+                        onsubmit="return confirm('Are you sure you want to run this scraper script in the background now?');">
+                        {% csrf_token %}
+                        <select name="action" class="refresh-btn" style="padding: 0.3rem;"
+                            onchange="if(this.value) this.form.submit();">
+                            <option value="">▶ Run Job...</option>
+                            <option value="run_daily">Run Daily Scraper (ShareSansar)</option>
+                            <option value="run_events">Run NepaliPaisa Calendar</option>
+                            <option value="run_reports">Run Merolagani Reports</option>
+                            <option value="run_holidays">Run Nepselink Holidays</option>
+                            <option value="run_agm">Run Historic AGM (Slow)</option>
+                        </select>
+                    </form>
+
+                    <form method="POST" action="{% url 'admin-dashboard' %}"
+                        onsubmit="return confirm('Are you sure you want to completely clear all past scraper logs?');"
+                        style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="clear_scraper_logs">
+                        <button type="submit" class="refresh-btn" style="color: #ef4444; border-color: #ef4444;">🗑️
+                            Clear Logs</button>
+                    </form>
+                </div>
+            </div>
+            {% if scraper_logs %}
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Added</th>
+                        <th>Symbols</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in scraper_logs %}
+                    <tr>
+                        <td>{{ log.started_at|date:"M d, H:i" }}</td>
+                        <td><span class="status-pill {{ log.status }}">{{ log.status }}</span></td>
+                        <td>{{ log.records_added }}</td>
+                        <td>{{ log.symbols_processed }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Scraper Pagination -->
+            {% if scraper_logs.has_other_pages %}
+            <div
+                style="padding: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 0.5rem;">
+                {% if scraper_logs.has_previous %}
+                <a href="?scraper_page={{ scraper_logs.previous_page_number }}{% if request.GET.download_page %}&download_page={{ request.GET.download_page }}{% endif %}"
+                    class="page-btn" style="text-decoration:none;">&laquo; Prev</a>
+                {% endif %}
+                <span style="padding: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Page {{ scraper_logs.number
+                    }} of {{ scraper_logs.paginator.num_pages }}</span>
+                {% if scraper_logs.has_next %}
+                <a href="?scraper_page={{ scraper_logs.next_page_number }}{% if request.GET.download_page %}&download_page={{ request.GET.download_page }}{% endif %}"
+                    class="page-btn" style="text-decoration:none;">Next &raquo;</a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state">
+                <p>No scraper logs yet</p>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                    Run <code>python manage.py scrape</code> to generate logs
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Downloads -->
+        <div class="panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>📥 Recent Downloads</div>
+                <form method="POST" action="{% url 'admin-dashboard' %}"
+                    onsubmit="return confirm('Are you sure you want to completely clear the historic download history?');"
+                    style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="clear_download_logs">
+                    <button type="submit" class="refresh-btn" style="color: #ef4444; border-color: #ef4444;">🗑️ Clear
+                        History</button>
+                </form>
+            </div>
+            {% if recent_downloads %}
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Stocks</th>
+                        <th>Records</th>
+                        <th>IP</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dl in recent_downloads %}
+                    <tr>
+                        <td>{{ dl.downloaded_at|date:"M d, H:i" }}</td>
+                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ dl.symbols|truncatechars:20 }}
+                        </td>
+                        <td>{{ dl.record_count }}</td>
+                        <td style="font-family: monospace; font-size: 0.8rem;">{{ dl.ip_address|default:"—" }}</td>
+                        <td>
+                            <form method="POST" action="{% url 'admin-dashboard' %}" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_download">
+                                <input type="hidden" name="log_id" value="{{ dl.id }}">
+                                <button type="submit" title="Delete record"
+                                    style="background: none; border: none; font-size: 1rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Downloads Pagination -->
+            {% if recent_downloads.has_other_pages %}
+            <div
+                style="padding: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 0.5rem;">
+                {% if recent_downloads.has_previous %}
+                <a href="?download_page={{ recent_downloads.previous_page_number }}{% if request.GET.scraper_page %}&scraper_page={{ request.GET.scraper_page }}{% endif %}"
+                    class="page-btn" style="text-decoration:none;">&laquo; Prev</a>
+                {% endif %}
+                <span style="padding: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Page {{
+                    recent_downloads.number }} of {{ recent_downloads.paginator.num_pages }}</span>
+                {% if recent_downloads.has_next %}
+                <a href="?download_page={{ recent_downloads.next_page_number }}{% if request.GET.scraper_page %}&scraper_page={{ request.GET.scraper_page }}{% endif %}"
+                    class="page-btn" style="text-decoration:none;">Next &raquo;</a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state">
+                <p>No downloads yet</p>
+                <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                    Downloads will appear here once users export CSV files
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if running_jobs %}
+<!-- Polling script for live logs -->
+<script>
+    function fetchLiveLogs() {
+        const rows = document.querySelectorAll('.active-job-row');
+
+        rows.forEach(row => {
+            const jobName = row.getAttribute('data-job');
+            const logContainer = row.querySelector('.live-log-container');
+
+            const formData = new FormData();
+            formData.append('action', 'get_live_log');
+            formData.append('job_name', jobName);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch("{% url 'admin-dashboard' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.log_content) {
+                        logContainer.style.display = 'block';
+                        if (logContainer.textContent !== data.log_content) {
+                            logContainer.textContent = data.log_content;
+                            logContainer.scrollTop = logContainer.scrollHeight;
+                        }
+                    }
+
+                    if (data.is_completed) {
+                        window.location.reload();
+                    }
+                })
+                .catch(err => console.error(err));
+        });
+    }
+
+    // Poll every 2 seconds
+    setInterval(fetchLiveLogs, 2000);
+    fetchLiveLogs();
+</script>
+{% endif %}
+
+{% endblock %}

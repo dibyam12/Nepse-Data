@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Download NEPSE Data — CSV Export{% endblock %}
+
+{% block extra_head %}
+<style>
+    .download-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .download-card h2 {
+        margin-bottom: 1.5rem;
+        font-size: 1.2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .radio-group {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: var(--bg-secondary);
+        border: 2px solid var(--border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .radio-option:hover {
+        border-color: var(--accent);
+        color: var(--text-primary);
+    }
+
+    .radio-option.selected {
+        border-color: var(--accent);
+        background: var(--accent-glow);
+        color: var(--text-primary);
+    }
+
+    .radio-option input[type="radio"] {
+        accent-color: var(--accent);
+    }
+
+    .date-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* Multi-select styled as a scrollable checkbox list */
+    .symbol-select-container {
+        max-height: 240px;
+        overflow-y: auto;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 2px;
+    }
+
+    .symbol-select-container.hidden {
+        display: none;
+    }
+
+    .symbol-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .symbol-checkbox:hover {
+        background: rgba(59, 130, 246, 0.08);
+        color: var(--text-primary);
+    }
+
+    .symbol-checkbox input[type="checkbox"] {
+        accent-color: var(--accent);
+    }
+
+    .select-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .select-actions button {
+        padding: 0.3rem 0.75rem;
+        font-size: 0.75rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        color: var(--accent);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+    }
+
+    .select-actions button:hover {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+    }
+
+    .download-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.85rem 2rem;
+        background: linear-gradient(135deg, var(--accent), #6366f1);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all 0.3s;
+        font-family: inherit;
+    }
+
+    .download-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+    }
+
+    .download-btn:active {
+        transform: translateY(0);
+    }
+
+    .preview-box {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: var(--radius);
+        font-size: 0.9rem;
+        color: var(--green);
+    }
+
+    .info-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+    }
+
+    .info-card h3 {
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .info-card ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    .info-card li {
+        padding: 0.35rem 0;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .info-card li::before {
+        content: '✓ ';
+        color: var(--green);
+        font-weight: bold;
+    }
+
+    @media (max-width: 600px) {
+        .date-row {
+            grid-template-columns: 1fr;
+        }
+
+        .radio-group {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="section-header" style="margin-top: 1rem;">
+        <div>
+            <h1>📥 Download NEPSE Data</h1>
+            <p class="subtitle">Export stock data as CSV for local analysis, research, or machine learning</p>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 340px; gap: 2rem; align-items: start;">
+        <!-- Download Form -->
+        <form id="downloadForm" action="{% url 'download-csv' %}" method="get" class="download-card">
+            <h2>📋 Configure Export</h2>
+
+            <!-- Mode Selection -->
+            <div class="form-group">
+                <label>Select Stocks</label>
+                <div class="radio-group">
+                    <label class="radio-option selected" id="opt-all">
+                        <input type="radio" name="mode" value="all" checked>
+                        🌐 All Stocks
+                    </label>
+                    <label class="radio-option" id="opt-selected">
+                        <input type="radio" name="mode" value="selected">
+                        🎯 Selected Stocks
+                    </label>
+                </div>
+            </div>
+
+            <!-- Symbol Selector -->
+            <div class="form-group" id="symbolGroup" style="display: none;">
+                <label>Choose Symbols</label>
+                <div class="select-actions">
+                    <button type="button" onclick="selectAllSymbols()">Select All</button>
+                    <button type="button" onclick="deselectAllSymbols()">Deselect All</button>
+                    <span id="selectedCount"
+                        style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto; align-self: center;"></span>
+                </div>
+                <div class="symbol-select-container" id="symbolContainer">
+                    {% for sym in symbols %}
+                    <label class="symbol-checkbox">
+                        <input type="checkbox" name="symbols" value="{{ sym }}">
+                        {{ sym }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Date Range -->
+            <div class="form-group">
+                <label>Date Range (optional)</label>
+                <div class="date-row">
+                    <div>
+                        <input type="date" name="date_from" class="form-input" id="dateFrom"
+                            value="{{ date_range.earliest|date:'Y-m-d' }}" min="{{ date_range.earliest|date:'Y-m-d' }}"
+                            max="{{ date_range.latest|date:'Y-m-d' }}">
+                    </div>
+                    <div>
+                        <input type="date" name="date_to" class="form-input" id="dateTo"
+                            value="{{ date_range.latest|date:'Y-m-d' }}" min="{{ date_range.earliest|date:'Y-m-d' }}"
+                            max="{{ date_range.latest|date:'Y-m-d' }}">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Button -->
+            <button type="submit" class="download-btn">
+                ⬇️ Download CSV
+            </button>
+
+            <div class="preview-box" id="previewBox" style="display: none;"></div>
+        </form>
+
+        <!-- Info Sidebar -->
+        <div>
+            <div class="info-card" style="margin-bottom: 1rem;">
+                <h3>📊 What's Included</h3>
+                <ul>
+                    <li>Symbol, Date, Open, High, Low, Close</li>
+                    <li>Volume data</li>
+                    <li>Stock category</li>
+                    <li>Standard CSV format</li>
+                </ul>
+            </div>
+            <div class="info-card">
+                <h3>💡 Use Cases</h3>
+                <ul>
+                    <li>Train ML models for stock prediction</li>
+                    <li>Academic research & analysis</li>
+                    <li>Build custom dashboards</li>
+                    <li>Import into Excel or Google Sheets</li>
+                    <li>Quantitative backtesting</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const radioOptions = document.querySelectorAll('.radio-option');
+    const symbolGroup = document.getElementById('symbolGroup');
+    const checkboxes = document.querySelectorAll('#symbolContainer input[type="checkbox"]');
+
+    // Radio toggle
+    radioOptions.forEach(opt => {
+        const radio = opt.querySelector('input[type="radio"]');
+        radio.addEventListener('change', () => {
+            radioOptions.forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            symbolGroup.style.display = radio.value === 'selected' ? 'block' : 'none';
+            updateCount();
+        });
+    });
+
+    // Count selected
+    function updateCount() {
+        const checked = document.querySelectorAll('#symbolContainer input:checked').length;
+        const el = document.getElementById('selectedCount');
+        if (el) el.textContent = checked > 0 ? `${checked} selected` : '';
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+
+    function selectAllSymbols() {
+        checkboxes.forEach(cb => cb.checked = true);
+        updateCount();
+    }
+
+    function deselectAllSymbols() {
+        checkboxes.forEach(cb => cb.checked = false);
+        updateCount();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}NEPSE Data — Market Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Page Header -->
+    <div class="section-header" style="margin-top: 1rem;">
+        <div>
+            <h1>Market Dashboard</h1>
+            <p class="subtitle">
+                {% if latest_date %}
+                Latest data: {{ latest_date|date:"M d, Y" }}
+                {% else %}
+                No data available yet — run the scraper to populate.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <!-- NEPSE Index -->
+        <a href="{% url 'stock-detail' 'NEPSE' %}" style="text-decoration: none; color: inherit;">
+            <div class="card" style="cursor: pointer; transition: border-color 0.2s;"
+                onmouseover="this.style.borderColor='var(--accent)'"
+                onmouseout="this.style.borderColor='var(--border)'">
+                <div class="card-header">
+                    <span class="card-title">NEPSE Index</span>
+                    <div class="stat-icon" style="background: var(--accent-glow);">📊</div>
+                </div>
+                <div class="card-value">
+                    {% if nepse %}
+                    {{ nepse.close|floatformat:2 }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </div>
+                {% if nepse %}
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    {{ nepse.date|date:"M d, Y" }}
+                </p>
+                {% endif %}
+            </div>
+        </a>
+
+        <!-- Total Stocks -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Listed Stocks</span>
+                <div class="stat-icon" style="background: rgba(34, 197, 94, 0.15);">🏢</div>
+            </div>
+            <div class="card-value">{{ total_symbols }}</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Unique symbols tracked
+            </p>
+        </div>
+
+        <!-- Total Records -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Total Records</span>
+                <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15);">📋</div>
+            </div>
+            <div class="card-value">{{ total_records|default:"0" }}</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Daily OHLCV entries
+            </p>
+        </div>
+
+        <!-- Data Range -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Data Range</span>
+                <div class="stat-icon" style="background: rgba(234, 179, 8, 0.15);">📅</div>
+            </div>
+            <div class="card-value" style="font-size: 1.2rem;">
+                {% if date_range.earliest %}
+                {{ date_range.earliest|date:"M Y" }} — {{ date_range.latest|date:"M Y" }}
+                {% else %}
+                No data
+                {% endif %}
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Historical coverage
+            </p>
+        </div>
+    </div>
+
+    <!-- Stock Table -->
+    <form method="GET" action="{% url 'dashboard' %}"
+        style="display: flex; gap: 1rem; align-items: center; max-width: 500px; margin-bottom: 2rem;">
+        <input type="text" name="q" id="stockSearch" placeholder="Search stocks by symbol..." autocomplete="off"
+            value="{{ search_query }}"
+            style="flex: 1; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary);">
+        <button type="submit" class="page-btn"
+            style="background: var(--accent); color: white; border: none; padding: 0.5rem 1rem;">Search</button>
+        {% if search_query %}
+        <a href="{% url 'dashboard' %}" class="page-btn" style="text-decoration: none;">Clear</a>
+        {% endif %}
+    </form>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h2>📈 Today's Market Data</h2>
+            {% if latest_date %}
+            <span style="color: var(--text-muted); font-size: 0.85rem;">{{ latest_date|date:"M d, Y" }}</span>
+            {% endif %}
+        </div>
+
+        {% if stocks %}
+        <table id="stockTable">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th class="text-right">Open</th>
+                    <th class="text-right">High</th>
+                    <th class="text-right">Low</th>
+                    <th class="text-right">Close (LTP)</th>
+                    <th class="text-right">Change</th>
+                    <th class="text-right">% Change</th>
+                    <th class="text-right">Volume</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td>
+                        <a href="{% url 'stock-detail' stock.symbol %}" style="font-weight: 600; color: var(--accent);">
+                            {{ stock.symbol }}
+                        </a>
+                    </td>
+                    <td class="text-right">{{ stock.open|floatformat:2 }}</td>
+                    <td class="text-right">{{ stock.high|floatformat:2 }}</td>
+                    <td class="text-right">{{ stock.low|floatformat:2 }}</td>
+                    <td class="text-right" style="font-weight: 600; color: var(--text-primary);">
+                        {{ stock.close|floatformat:2 }}
+                    </td>
+                    <td class="text-right">
+                        <span class="{% if stock.change >= 0 %}text-green{% else %}text-red{% endif %}">
+                            {% if stock.change >= 0 %}+{% endif %}{{ stock.change|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <span class="badge {% if stock.change_percent >= 0 %}badge-green{% else %}badge-red{% endif %}">
+                            {% if stock.change_percent >= 0 %}+{% endif %}{{ stock.change_percent|floatformat:2 }}%
+                        </span>
+                    </td>
+                    <td class="text-right">{{ stock.volume|default:"0" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-bar">
+            <div class="pagination-info">
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} stocks
+            </div>
+            <div class="pagination-controls">
+                {% if page_obj.has_previous %}
+                <a href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}" class="page-btn"
+                    title="First">«</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                    class="page-btn">‹ Prev</a>
+                {% else %}
+                <span class="page-btn disabled">«</span>
+                <span class="page-btn disabled">‹ Prev</span>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %} <a
+                    href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}" class="page-btn">
+                    {{num}}</a>
+                    {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                        class="page-btn">{{num }}</a>
+                    {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+                    <span class="page-dots">…</span>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                        class="page-btn">Next ›</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}"
+                        class="page-btn" title="Last">»</a>
+                    {% else %}
+                    <span class="page-btn disabled">Next ›</span>
+                    <span class="page-btn disabled">»</span>
+                    {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+            <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">No data yet</p>
+            <p>Run <code>python manage.py scrape</code> to populate the database.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

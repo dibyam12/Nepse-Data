@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}{{ symbol }} — NEPSE Data{% endblock %}
+
+{% block extra_head %}
+<style>
+    .download-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .download-bar .info {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .download-bar .info strong {
+        color: var(--text-primary);
+    }
+
+    .csv-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1.25rem;
+        background: linear-gradient(135deg, var(--accent), #6366f1);
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s;
+        font-family: inherit;
+    }
+
+    .csv-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+        color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <div style="margin: 1rem 0;">
+        <a href="{% url 'dashboard' %}" style="color: var(--text-muted); font-size: 0.85rem;">← Back to Dashboard</a>
+    </div>
+
+    <!-- Stock Header -->
+    <div class="section-header">
+        <div>
+            <h1 style="display: flex; align-items: center;">{{ symbol }} <span class="badge"
+                    style=" margin-left: 0.25rem; background: var(--bg-secondary); color: var(--text-muted);">{{reports.0.sector}}</span>
+            </h1>
+            {% if latest %}
+            <p class="subtitle">
+                Last traded: {{ latest.date|date:"M d, Y" }} •
+                Close: <strong style="color: var(--text-primary);">NPR {{ latest.close|floatformat:2 }}</strong>
+                <span class="{% if latest.change >= 0 %}text-green{% else %}text-red{% endif %}">
+                    ({% if latest.change_percent >= 0 %}+{% endif %}{{ latest.change_percent|floatformat:2 }}%)
+                </span>
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Latest Stats -->
+    {% if latest %}
+    <div class="stats-grid">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Open</span>
+            </div>
+            <div class="card-value" style="font-size: 1.5rem;">{{ latest.open|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">High</span>
+            </div>
+            <div class="card-value" style="font-size: 1.5rem; color: var(--green);">{{ latest.high|floatformat:2 }}
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Low</span>
+            </div>
+            <div class="card-value" style="font-size: 1.5rem; color: var(--red);">{{ latest.low|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Volume</span>
+            </div>
+            <div class="card-value" style="font-size: 1.5rem;">{{ latest.volume }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Per-Stock CSV Download -->
+    {% if stock_date_range.earliest %}
+    <div class="download-bar">
+        <div class="info">
+            <strong>{{ total_count }}</strong> records available •
+            {{ stock_date_range.earliest|date:"M d, Y" }} to {{ stock_date_range.latest|date:"M d, Y" }}
+        </div>
+        <a href="{% url 'download-csv' %}?mode=selected&symbols={{ symbol }}&date_from={{ stock_date_range.earliest|date:'Y-m-d' }}&date_to={{ stock_date_range.latest|date:'Y-m-d' }}"
+            class="csv-btn">
+            ⬇ Download {{ symbol }} CSV
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Price Chart -->
+    <div class="chart-container" style="height: 350px; position: relative;">
+        <h3 style="margin-bottom: 1rem;">Recent Price History</h3>
+        <canvas id="priceChart"></canvas>
+    </div>
+
+    <!-- Historical Data Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h2>Recent Data</h2>
+            <a href="/api/stocks/{{ symbol }}/" target="_blank" style="font-size: 0.85rem;">View as JSON ↗</a>
+        </div>
+        {% if records %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th class="text-right">Open</th>
+                    <th class="text-right">High</th>
+                    <th class="text-right">Low</th>
+                    <th class="text-right">Close</th>
+                    <th class="text-right">Change %</th>
+                    <th class="text-right">Volume</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td>{{ r.date|date:"Y-m-d" }}</td>
+                    <td class="text-right">{{ r.open|floatformat:2 }}</td>
+                    <td class="text-right">{{ r.high|floatformat:2 }}</td>
+                    <td class="text-right">{{ r.low|floatformat:2 }}</td>
+                    <td class="text-right" style="font-weight: 600;">{{ r.close|floatformat:2 }}</td>
+                    <td class="text-right">
+                        <span class="badge {% if r.change_percent >= 0 %}badge-green{% else %}badge-red{% endif %}">
+                            {% if r.change_percent >= 0 %}+{% endif %}{{ r.change_percent|floatformat:2 }}%
+                        </span>
+                    </td>
+                    <td class="text-right">{{ r.volume }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination for Historical Data -->
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-bar" style="margin-top: 1rem;">
+            <div class="pagination-controls">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="page-btn">‹ Prev</a>
+                {% endif %}
+                <span style="font-size:0.85rem; color:var(--text-muted); margin:0 0.5rem;">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="page-btn">Next ›</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+            No data available for {{ symbol }}.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Stock Quarterly Reports -->
+    <div class="table-card" style="margin-top: 2rem;">
+        <div class="table-header">
+            <h2>📊 Quarterly Reports</h2>
+        </div>
+        {% if reports %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Sector</th>
+                    <th class="text-right">Earnings</th>
+                    <th class="text-right">Reported EPS</th>
+                    <th class="text-right">YoY Growth</th>
+                    <th>Surprise</th>
+                    <th class="text-right">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr>
+                    <td><span class="badge" style="background: var(--bg-secondary); color: var(--text-muted);">
+                            {{ report.sector }}</span></td>
+                    <td class="text-right">{{ report.earnings }}</td>
+                    <td class="text-right" style="font-family: monospace;">{{ report.reported_eps }}</td>
+                    <td class="text-right">
+                        {% if report.yoy_growth_percent and report.yoy_growth_percent > 0 %}
+                        <span class="text-green">+{{ report.yoy_growth_percent }}%</span>
+                        {% elif report.yoy_growth_percent and report.yoy_growth_percent < 0 %} <span class="text-red">
+                            {{ report.yoy_growth_percent }}%</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                    </td>
+                    <td>
+                        {% if 'Above' in report.surprise %}
+                        <span class="badge badge-green">Above</span>
+                        {% elif 'Below' in report.surprise %}
+                        <span class="badge badge-red">Below</span>
+                        {% else %}
+                        <span class="badge" style="background: var(--bg-secondary);">{{ report.surprise }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">{{ report.publish_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination for Reports -->
+        {% if reports_page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-bar" style="margin-top: 1rem;">
+            <div class="pagination-controls">
+                {% if reports_page_obj.has_previous %}
+                <a href="?reports_page={{ reports_page_obj.previous_page_number }}" class="page-btn">‹ Prev</a>
+                {% endif %}
+                <span style="font-size:0.85rem; color:var(--text-muted); margin:0 0.5rem;">
+                    Page {{ reports_page_obj.number }} of {{ reports_page_obj.paginator.num_pages }}
+                </span>
+                {% if reports_page_obj.has_next %}
+                <a href="?reports_page={{ reports_page_obj.next_page_number }}" class="page-btn">Next ›</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+            No quarterly earnings reported yet.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Stock Corporate Events -->
+    <div class="table-card" style="margin-top: 2rem;">
+        <div class="table-header">
+            <h2>📅 Corporate Events</h2>
+        </div>
+        {% if events %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Event Title</th>
+                    <th>Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td style="font-weight: 500; color: var(--text-primary);">{{ event.title }}</td>
+                    <td>
+                        <span class="badge" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                            {{ event.event_type }}
+                        </span>
+                    </td>
+                    <td>{{ event.start_date|default:"-" }}</td>
+                    <td>{{ event.end_date|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination for Events -->
+        {% if events_page_obj.paginator.num_pages > 1 %}
+        <div class="pagination-bar" style="margin-top: 1rem;">
+            <div class="pagination-controls">
+                {% if events_page_obj.has_previous %}
+                <a href="?events_page={{ events_page_obj.previous_page_number }}" class="page-btn">‹ Prev</a>
+                {% endif %}
+                <span style="font-size:0.85rem; color:var(--text-muted); margin:0 0.5rem;">
+                    Page {{ events_page_obj.number }} of {{ events_page_obj.paginator.num_pages }}
+                </span>
+                {% if events_page_obj.has_next %}
+                <a href="?events_page={{ events_page_obj.next_page_number }}" class="page-btn">Next ›</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+            No upcoming events found.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    const chartData = JSON.parse('{{ chart_data_json|escapejs }}');
+
+    if (chartData.length > 0) {
+        const labels = chartData.map(d => d.date);
+        const closes = chartData.map(d => d.close);
+        const volumes = chartData.map(d => d.volume);
+
+        const ctx = document.getElementById('priceChart').getContext('2d');
+
+        // Gradient fill
+        const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+        gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Close Price (NPR)',
+                    data: closes,
+                    borderColor: '#3b82f6',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHitRadius: 10,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1f2e',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        borderColor: '#2a3040',
+                        borderWidth: 1,
+                        padding: 12,
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(42,48,64,0.3)' },
+                        ticks: { color: '#64748b', maxTicksLimit: 10, maxRotation: 45 },
+                    },
+                    y: {
+                        grid: { color: 'rgba(42,48,64,0.3)' },
+                        ticks: { color: '#64748b' },
+                    },
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+            },
+        });
+    } else {
+        document.getElementById('priceChart').parentElement.innerHTML =
+            '<p style="text-align:center;color:var(--text-muted);padding:3rem;">No chart data available.</p>';
+    }
+</script>
+{% endblock %}
