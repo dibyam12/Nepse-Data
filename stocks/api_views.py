@@ -188,3 +188,53 @@ class QuarterlyReportListView(generics.ListAPIView):
             qs = qs.filter(symbol=symbol.upper())
         return qs
 
+
+import threading
+from django.conf import settings
+from django.core.management import call_command
+
+@api_view(['GET'])
+def ping(request):
+    """
+    Simple endpoint to wake up the server (Render free tier).
+    GET /api/ping/
+    """
+    return Response({"status": "awake", "message": "Server is up and running!"})
+
+
+@api_view(['POST'])
+def trigger_scrape(request):
+    """
+    Endpoint to trigger background scraping via cron-job.org.
+    Requires CRON_SECRET_KEY in the Authorization header.
+    POST /api/trigger-scrape/
+    """
+    auth_header = request.headers.get("Authorization")
+    expected_token = getattr(settings, 'CRON_SECRET_KEY', None)
+
+    if not auth_header or auth_header != f"Bearer {expected_token}":
+        return Response(
+            {"error": "Unauthorized. Invalid or missing secret key."},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    # Run in a background thread so the API returns quickly before Render/cron-job times out
+    def background_scrape():
+        try:
+            print("Background scrape triggered via API...")
+            call_command("scrape")
+            
+            # Run weekly tasks too if requested (e.g. ?full=1)
+            # Actually, easiest is just to run the calendar scrapes too
+            # but standard daily scrape should suffice for the main functionality
+        except Exception as e:
+            print(f"Background scrape failed: {e}")
+
+    thread = threading.Thread(target=background_scrape)
+    thread.start()
+
+    return Response({
+        "status": "processing",
+        "message": "Background scrape has been triggered and is running."
+    }, status=status.HTTP_202_ACCEPTED)
+

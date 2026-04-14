@@ -11,4 +11,8 @@ urlpatterns = [
     path("index/", api_views.nepse_index, name="api-nepse-index"),
     path("calendar/events/", api_views.CalendarEventListView.as_view(), name="api-calendar-events"),
     path("calendar/reports/", api_views.QuarterlyReportListView.as_view(), name="api-calendar-reports"),
+    
+    # Automated background targets
+    path("ping/", api_views.ping, name="api-ping"),
+    path("trigger-scrape/", api_views.trigger_scrape, name="api-trigger-scrape"),
 ]

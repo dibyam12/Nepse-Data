@@ -16,6 +16,8 @@ SECRET_KEY = os.getenv(
     "django-insecure-nepse-api-change-this-in-production-!@#$%"
 )
 
+CRON_SECRET_KEY = os.getenv("CRON_SECRET_KEY", "my-super-secret-cron-key-123")
+
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
