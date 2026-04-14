@@ -73,7 +73,7 @@ class Command(BaseCommand):
             
             # Limit to recent 3 years for performance unless requested otherwise, but the user requested "all available fiscal years"
             # However doing 10+ years takes a long time. Let's do all.
-            for val, text in values_to_check:
+            for val, text in values_to_check[:3]:
                 self.stdout.write(f"Fetching for FY: {text}")
                 await year_select.select_option(val)
                 # Need to click search button to load table

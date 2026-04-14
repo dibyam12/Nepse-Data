@@ -5,6 +5,7 @@ Public REST API + Web Dashboard for Nepal Stock Exchange data.
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 load_dotenv()
 
@@ -18,6 +19,9 @@ SECRET_KEY = os.getenv(
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h != "*"]
+if os.getenv("RENDER"):
+    ALLOWED_HOSTS.append(os.getenv("RENDER_EXTERNAL_HOSTNAME", ""))
 
 # ─── INSTALLED APPS ──────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -37,6 +41,7 @@ INSTALLED_APPS = [
 # ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -68,12 +73,29 @@ TEMPLATES = [
 WSGI_APPLICATION = "nepse_api.wsgi.application"
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
+# Local development: SQLite is the default database
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+# Neon PostgreSQL — available as secondary DB locally, primary on production
+_neon_url = os.getenv("DATABASE_URL")
+if _neon_url:
+    _neon_config = dj_database_url.parse(_neon_url, conn_max_age=600)
+    _neon_config["OPTIONS"] = _neon_config.get("OPTIONS", {})
+    _neon_config["OPTIONS"]["sslmode"] = "require"
+
+    if os.getenv("RENDER"):
+        # On Render production: Neon IS the default database
+        DATABASES["default"] = _neon_config
+    else:
+        # Local dev: keep SQLite as default, add Neon as 'neon'
+        DATABASES["neon"] = _neon_config
+
+DATABASE_ROUTERS = ["nepse_api.db_router.NeonRouter"]
 
 # ─── DRF CONFIGURATION ──────────────────────────────────────────────────────
 REST_FRAMEWORK = {
@@ -112,6 +134,7 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

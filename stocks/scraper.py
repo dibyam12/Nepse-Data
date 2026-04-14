@@ -121,10 +121,10 @@ class ShareSansarScraper:
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        extracted_date = self._extract_date_from_page(soup)
-        data_date = extracted_date if extracted_date else target_date
-
-        return self._parse_stock_table(soup, data_date)
+        # Always use the requested target_date.
+        # ShareSansar's "As of" text always shows the latest market date
+        # regardless of the ?date= parameter, so we cannot rely on it.
+        return self._parse_stock_table(soup, target_date)
 
     def fetch_nepse_index(self, target_date=None):
         """Fetch the NEPSE Index for a given date via NepseAlpha TradingView API."""

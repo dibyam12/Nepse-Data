@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: nepse-data-api
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn nepse_api.wsgi --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: RENDER
+        value: "True"
+
+  # Cron jobs for automated scraping
+  - type: cron
+    name: daily-stock-scrape
+    runtime: python
+    schedule: "30 11 * * 0-4"  # 5:15 PM NPT (market closes at 3 PM)
+    buildCommand: "./build.sh"
+    startCommand: "python manage.py scrape"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+
+  - type: cron
+    name: weekly-calendar-scrape
+    runtime: python
+    schedule: "0 12 * * 0"  # Every Sunday at 5:45 PM NPT
+    buildCommand: "./build.sh"
+    startCommand: "python manage.py scrape_calendar && python manage.py scrape_quarterly_reports && python manage.py scrape_holidays"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
