@@ -11,6 +11,13 @@ class NepseAlphaScraper:
 
     def __init__(self):
         self.session = requests.Session(impersonate='chrome120')
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://nepsealpha.com/trading/chart',
+            'Origin': 'https://nepsealpha.com',
+        })
         self.base_url = "https://nepsealpha.com/trading/1/history"
 
     def fetch_history(self, symbol, from_date: date, to_date: date, resolution="1D"):
