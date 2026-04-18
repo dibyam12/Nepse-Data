@@ -15,24 +15,26 @@ services:
         value: "*"
       - key: RENDER
         value: "True"
-
-  # Cron jobs for automated scraping
-  - type: cron
-    name: daily-stock-scrape
-    runtime: python
-    schedule: "30 11 * * 0-4"  # 5:15 PM NPT (market closes at 3 PM)
-    buildCommand: "./build.sh"
-    startCommand: "python manage.py scrape"
-    envVars:
-      - key: DATABASE_URL
+      - key: CRON_SECRET_KEY
         sync: false
 
-  - type: cron
-    name: weekly-calendar-scrape
-    runtime: python
-    schedule: "0 12 * * 0"  # Every Sunday at 5:45 PM NPT
-    buildCommand: "./build.sh"
-    startCommand: "python manage.py scrape_calendar && python manage.py scrape_quarterly_reports && python manage.py scrape_holidays"
-    envVars:
-      - key: DATABASE_URL
-        sync: false
+  # ──────────────────────────────────────────────────────────────────────
+  # CRON JOBS — handled by cron-job.org (Render free tier has no cron)
+  #
+  # Configure at https://cron-job.org with:
+  #
+  #   Daily stock scrape (5:15 PM NPT / 11:30 UTC, Sun-Thu):
+  #     URL:    https://<your-app>.onrender.com/api/trigger-scrape/?key=<CRON_SECRET_KEY>
+  #     Method: GET
+  #     Schedule: 30 11 * * 0-4
+  #
+  #   Weekly calendar + reports (Sunday 5:45 PM NPT / 12:00 UTC):
+  #     URL:    https://<your-app>.onrender.com/api/trigger-scrape/?key=<CRON_SECRET_KEY>&tasks=all
+  #     Method: GET
+  #     Schedule: 0 12 * * 0
+  #
+  #   Keep-alive ping (every 14 min to prevent Render sleep):
+  #     URL:    https://<your-app>.onrender.com/api/ping/
+  #     Method: GET
+  #     Schedule: */14 * * * *
+  # ──────────────────────────────────────────────────────────────────────

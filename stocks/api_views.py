@@ -202,53 +202,67 @@ def ping(request):
     return Response({"status": "awake", "message": "Server is up and running!"})
 
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 def trigger_scrape(request):
     """
-    Endpoint to trigger background scraping via cron-job.org.
-    Requires CRON_SECRET_KEY in the Authorization header.
-    POST /api/trigger-scrape/ (?tasks=all to include calendar/reports)
+    Trigger background scraping — designed for cron-job.org.
+
+    Authentication (either method works):
+      - Query param:  GET  /api/trigger-scrape/?key=<CRON_SECRET_KEY>
+      - Header:       POST /api/trigger-scrape/  Authorization: Bearer <CRON_SECRET_KEY>
+
+    Options:
+      - ?tasks=all    also run calendar, reports, and holidays scrapers
+
+    cron-job.org setup:
+      Daily:  GET https://<app>.onrender.com/api/trigger-scrape/?key=<KEY>
+              Schedule: 30 11 * * 0-4   (11:30 UTC = 5:15 PM NPT)
+      Weekly: GET https://<app>.onrender.com/api/trigger-scrape/?key=<KEY>&tasks=all
+              Schedule: 0 12 * * 0      (12:00 UTC = 5:45 PM NPT)
     """
-    auth_header = request.headers.get("Authorization")
     expected_token = getattr(settings, 'CRON_SECRET_KEY', None)
 
-    if not auth_header or auth_header != f"Bearer {expected_token}":
+    # Auth via query param (?key=...) — easiest for cron-job.org
+    key_param = request.query_params.get('key', '')
+
+    # Auth via header (Authorization: Bearer ...)
+    auth_header = request.headers.get('Authorization', '')
+    header_token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else ''
+
+    if not expected_token or (key_param != expected_token and header_token != expected_token):
         return Response(
-            {"error": "Unauthorized. Invalid or missing secret key."},
-            status=status.HTTP_401_UNAUTHORIZED
+            {"error": "Unauthorized. Provide ?key=<CRON_SECRET_KEY> or Authorization header."},
+            status=status.HTTP_401_UNAUTHORIZED,
         )
-        
+
     run_all = request.query_params.get('tasks') == 'all'
 
-    # Run in a background thread so the API returns quickly before Render/cron-job times out
     def background_scrape():
+        import logging
+        log = logging.getLogger('stocks')
         try:
-            print("Background scrape triggered via API...")
+            log.info("Background scrape triggered via API…")
             call_command("scrape")
-            
-            if run_all:
-                print("Running supplementary scrapers...")
-                try: call_command("scrape_calendar")
-                except Exception as e: print(f"Calendar scrape failed: {e}")
-                
-                try: call_command("scrape_quarterly_reports")
-                except Exception as e: print(f"Reports scrape failed: {e}")
-                
-                try: call_command("scrape_holidays")
-                except Exception as e: print(f"Holidays scrape failed: {e}")
-                
-        except Exception as e:
-            print(f"Background scrape failed: {e}")
 
-    thread = threading.Thread(target=background_scrape)
+            if run_all:
+                log.info("Running supplementary scrapers…")
+                for cmd in ("scrape_calendar", "scrape_quarterly_reports", "scrape_holidays"):
+                    try:
+                        call_command(cmd)
+                    except Exception as e:
+                        log.error(f"{cmd} failed: {e}")
+        except Exception as e:
+            log.error(f"Background scrape failed: {e}")
+
+    thread = threading.Thread(target=background_scrape, daemon=True)
     thread.start()
 
-    msg = "Background daily scrape has been triggered."
+    msg = "Daily scrape triggered in background."
     if run_all:
-        msg = "Background daily scrape AND weekly supplementary scrapers (calendar, reports, holidays) have been triggered."
+        msg += " Weekly supplementary scrapers (calendar, reports, holidays) also queued."
 
     return Response({
         "status": "processing",
-        "message": msg
+        "message": msg,
     }, status=status.HTTP_202_ACCEPTED)
 

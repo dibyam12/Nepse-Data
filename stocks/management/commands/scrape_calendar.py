@@ -46,6 +46,12 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS('Starting NepaliPaisa Calendar Scraper...'))
         
+        # Delete past events to keep DB clean
+        from datetime import date
+        deleted_count, _ = CalendarEvent.objects.filter(start_date__lt=date.today()).delete()
+        if deleted_count > 0:
+            self.stdout.write(f"Deleted {deleted_count} past calendar events.")
+        
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
@@ -115,6 +121,10 @@ class Command(BaseCommand):
                         event_type = clean_event_type(title, event_main)
                         
                         if start_date:
+                            from datetime import date
+                            if start_date < date.today():
+                                continue # Skip events that have already passed
+                                
                             start_date_str = start_date.strftime('%Y-%m-%d')
                             end_date_str = end_date.strftime('%Y-%m-%d') if end_date else ""
                             

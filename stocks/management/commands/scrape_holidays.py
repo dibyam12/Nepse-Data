@@ -75,6 +75,9 @@ class Command(BaseCommand):
                     except ValueError:
                         holiday_date = date.today()
                         
+                    if holiday_date < date.today():
+                        continue # Skip past holidays
+                        
                     # If date already exists, append description
                     holiday, created = MarketHoliday.objects.get_or_create(
                         date=holiday_date,
