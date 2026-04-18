@@ -27,6 +27,10 @@ class Command(BaseCommand):
             '--batch', type=int, default=BATCH_SIZE,
             help=f'Batch size for bulk_create (default: {BATCH_SIZE})',
         )
+        parser.add_argument(
+            '--wipe-neon', action='store_true',
+            help='DANGEROUS: Wipes all Neon data before exporting to force an exact sync.',
+        )
 
     def handle(self, *args, **options):
         from django.conf import settings
@@ -60,6 +64,13 @@ class Command(BaseCommand):
             ('QuarterlyReport', QuarterlyReport),
             ('MarketHoliday', MarketHoliday),
         ]
+
+        if options['wipe_neon']:
+            self.stdout.write(self.style.ERROR("\n=== WARNING: WIPING ALL NEON DATA ==="))
+            # Reverse order to avoid FK constraint issues (though currently no FKs across these)
+            for model_name, Model in reversed(models_to_sync):
+                deleted_count, _ = Model.objects.using('neon').all().delete()
+                self.stdout.write(f"  Wiped {deleted_count} {model_name} records")
 
         self.stdout.write(self.style.WARNING("\n=== Step 2: Copying data to Neon DB ==="))
 
